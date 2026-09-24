@@ -1,0 +1,27 @@
+# Goal 21 Phase 8 item 3: daily tamper watch for solomonsdigital.com.au.
+# Copy of the file that lives at .github/workflows/tamper-watch.yml in nicSolomons/solomons-cards,
+# with its script at .github/tamper_watch.py (the deploy sync excludes .github/*, so neither is published).
+# Every day it compares every live card file byte for byte with the committed copy. A difference fails
+# the run, and GitHub emails the repo owner about the failed run. No AWS access, read-only token.
+# Note: GitHub pauses scheduled workflows in a repo with no commits for 60 days; any publish resets that.
+name: tamper-watch
+
+on:
+  schedule:
+    - cron: "17 21 * * *"   # 07:17 Sydney (AEST) every day
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  watch:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Compare every live card file with the published copy
+        run: python3 .github/tamper_watch.py --repo .
