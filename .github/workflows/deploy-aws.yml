@@ -1,0 +1,49 @@
+# Goal 21: deploy the Solomons Digital Cards to AWS (solomonsdigital.com.au) on every push to main.
+# Copy of the file that lives at .github/workflows/deploy-aws.yml in nicSolomons/solomons-cards.
+# No AWS keys anywhere: GitHub proves who it is (OIDC) and AWS hands back a short-lived session for a
+# role that may ONLY write this bucket and refresh this distribution, and ONLY for this repo's main.
+# Third-party steps are pinned to exact commits so a changed release cannot slip into the pipeline.
+name: deploy-aws
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  id-token: write
+
+concurrency:
+  group: deploy-aws
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - uses: aws-actions/configure-aws-credentials@e1253824e5c10ff9df46874f81ed3ec929e19cfd # v6.3.0
+        with:
+          role-to-assume: arn:aws:iam::484474575484:role/solomons-cards-deploy
+          aws-region: ap-southeast-2
+
+      - name: Sync cards to the private bucket
+        run: |
+          aws s3 sync . s3://solomonsdigital-cards-484474575484 --delete \
+            --exclude ".git/*" --exclude ".github/*" --exclude ".nojekyll" \
+            --exclude ".gitattributes" --exclude "index.html" --exclude "README*" \
+            --cache-control "public, max-age=300"
+          # contact cards must download as vCards, not display as text
+          aws s3 cp s3://solomonsdigital-cards-484474575484/ s3://solomonsdigital-cards-484474575484/ \
+            --recursive --exclude "*" --include "*.vcf" \
+            --content-type "text/vcard; charset=utf-8" --cache-control "public, max-age=300" \
+            --metadata-directive REPLACE
+
+      - name: Refresh the delivery network
+        run: |
+          aws cloudfront create-invalidation --distribution-id E173LHXLTF70J6 --paths "/*"
