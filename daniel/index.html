@@ -36,7 +36,7 @@
     --creds:#6f6a62;
     --afsl:#565149;
     --shadow:0 24px 60px -28px rgba(20,24,28,.5);
-    --veil:linear-gradient(to bottom,#14181c 0%,#2a2f34 2%,#4a4f54 4%,#74777a 6%,#9c9d9c 8%,#bfbfbe 10%,#d9d9d9 12%,rgba(217,217,217,0) 18%,rgba(20,24,28,0) 40%,rgba(20,24,28,.22) 53%,rgba(20,24,28,.6) 65%,rgba(20,24,28,.88) 76%,#14181c 85%,#14181c 100%);
+    --veil:linear-gradient(to bottom,#14181c 0%,rgba(20,24,28,.82) 3%,rgba(20,24,28,.5) 7%,rgba(20,24,28,.2) 11%,rgba(20,24,28,0) 16%,rgba(20,24,28,0) 40%,rgba(20,24,28,.22) 53%,rgba(20,24,28,.6) 65%,rgba(20,24,28,.88) 76%,#14181c 85%,#14181c 100%);
   }
 
   * { box-sizing:border-box; -webkit-tap-highlight-color:transparent; }
@@ -55,8 +55,8 @@
   .hd .word { font-family:'Jost',sans-serif; font-weight:300; font-size:21px; letter-spacing:.26em; line-height:1; color:var(--text); }
   .hd .sub { font-size:7.5px; letter-spacing:.38em; color:var(--sub); }
 
-  .photo { position:relative; height:476px; overflow:hidden; background:#d9d9d9; }
-  .photo img { position:absolute; left:0; right:0; bottom:0; width:100%; height:420px; object-fit:cover; }
+  .photo { position:relative; height:476px; overflow:hidden; background:var(--bg); }
+  .photo img { position:absolute; left:0; right:0; bottom:0; width:100%; height:100%; object-fit:cover; object-position:50% 30%; }
   .photo .veil { position:absolute; inset:0; background:var(--veil); }
   .overlay { position:absolute; left:32px; right:32px; bottom:22px; display:flex; flex-direction:column; gap:11px; }
   .name { font-family:'EB Garamond',serif; font-size:40px; line-height:1; letter-spacing:-.01em; color:var(--text); }
@@ -73,7 +73,7 @@
   .li:hover { background:var(--accent); color:var(--bg); border-color:var(--accent); }
 
   .id-block { padding:24px 32px 0; display:flex; flex-direction:column; gap:22px; }
-  .bio { font-family:'EB Garamond',serif; font-size:19px; line-height:1.55; color:var(--bio); text-wrap:pretty; }
+  .bio { font-family:'EB Garamond',serif; font-size:19px; line-height:1.55; color:var(--bio); text-wrap:pretty; text-align:justify; }
   .profile-row { display:flex; justify-content:flex-end; margin-top:-12px; }
   .profile-link { font-size:10px; letter-spacing:.1em; color:var(--muted); border-bottom:1px solid var(--profileborder); padding-bottom:3px; transition:color .3s ease, border-color .3s ease; }
   .profile-link:hover { color:var(--role); border-color:var(--accent); }
@@ -145,7 +145,7 @@
     </div>
 
     <div class="id-block">
-      <div class="bio">Daniel is an Associate Director with seven years across banking, financial services and wealth management, previously at Citibank, BT Financial Group and Westpac, managing wealth solutions for ultra-high-net-worth and family-office clients. He specialises in bringing international investment strategies to Australian clients.</div>
+      <div class="bio">Daniel comes with seven years across banking, financial services and wealth management, previously at Citibank, BT Financial Group and Westpac, managing wealth solutions for ultra-high-net-worth and family-office clients. He specialises in bringing international investment strategies to Australian clients.</div>
       <div class="profile-row">
         <a class="profile-link" href="https://thesolomons.com.au/personnel/daniel-park/" target="_blank" rel="noopener">FULL PROFILE →</a>
       </div>
