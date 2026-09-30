@@ -34,10 +34,19 @@ def check(label, ok, detail=""):
     print(("PASS " if ok else "FAIL ") + label + (f"  ({detail})" if detail and not ok else ""))
 
 
-def fetch(path, tries=3):
+def edge_ips():
+    """Every edge address the domain resolves to from here (audit F15: the watch used one edge only)."""
+    import socket
+    return sorted({ai[4][0] for ai in socket.getaddrinfo(DOMAIN, 443, socket.AF_INET, socket.SOCK_STREAM)})
+
+
+def fetch(path, ip=None, tries=3):
     for i in range(tries):
         try:
             c = http.client.HTTPSConnection(DOMAIN, timeout=20, context=ssl.create_default_context())
+            if ip:  # this edge address, certificate still checked for the real name
+                import socket
+                c.sock = c._context.wrap_socket(socket.create_connection((ip, 443), timeout=20), server_hostname=DOMAIN)
             c.request("GET", path, headers={"User-Agent": "goal21-tamper-watch", "Cache-Control": "no-cache"})
             r = c.getresponse()
             return r.status, r.read()
@@ -63,13 +72,19 @@ def main():
     repo = sys.argv[sys.argv.index("--repo") + 1] if "--repo" in sys.argv else (
         "." if os.path.isfile("robots.txt") else os.path.expanduser("~/solomons-cards"))
     files = published_files(repo)
-    print(f"comparing {len(files)} published files in {os.path.abspath(repo)} with https://{DOMAIN}/")
+    ips = edge_ips()
+    print(f"comparing {len(files)} published files in {os.path.abspath(repo)} with https://{DOMAIN}/ "
+          f"through {len(ips)} edge addresses")
     for rel in files:
         want = hashlib.sha256(open(os.path.join(repo, rel), "rb").read()).hexdigest()
-        status, body = fetch("/" + rel)
-        got = hashlib.sha256(body).hexdigest()
-        check(f"/{rel} live matches the published copy", status == 200 and got == want,
-              f"HTTP {status}, live {got[:12]} vs committed {want[:12]}")
+        wrong = []
+        for ip in ips:
+            status, body = fetch("/" + rel, ip)
+            got = hashlib.sha256(body).hexdigest()
+            if status != 200 or got != want:
+                wrong.append(f"{ip}: HTTP {status}, {got[:12]}")
+        check(f"/{rel} live matches the published copy at every edge address", ips and not wrong,
+              f"committed {want[:12]}; {wrong}")
     # the edge list is current and in force (audit F16, option A): a made-up address is answered at the edge with the
     # not-found page and the full headers. A skipped or failed list refresh, or a removed step, fails here next morning.
     import uuid
@@ -90,9 +105,15 @@ def main():
         if r.returncode != 0:
             check("bucket inventory could be read", False, r.stderr.strip()[:200])
         else:
-            keys = {o["Key"] for o in json.loads(r.stdout or "{}").get("Contents", [])}
-            extra = sorted(keys - set(files))
-            check(f"the bucket holds nothing the deploy repo does not ({len(keys)} objects)", not extra, extra[:20])
+            objects = {o["Key"]: o["ETag"].strip('"') for o in json.loads(r.stdout or "{}").get("Contents", [])}
+            extra = sorted(set(objects) - set(files))
+            check(f"the bucket holds nothing the deploy repo does not ({len(objects)} objects)", not extra, extra[:20])
+            # the ORIGIN itself: every edge serves from these bytes. The listing carries each object's MD5 (ETag), so a
+            # file changed in the bucket shows here whichever edge would have served it (audit F15)
+            changed = [k for k in files if k in objects and
+                       objects[k] != hashlib.md5(open(os.path.join(repo, k), "rb").read()).hexdigest()]
+            check("every object in the bucket has exactly the bytes of its committed file (MD5 from the listing)",
+                  not changed and all(f in objects for f in files), changed[:20] or sorted(set(files) - set(objects)))
     n = len(CHECKS)
     print(f"\nTAMPER WATCH ({DOMAIN}): {'PASS' if all(CHECKS) else 'FAIL'} {sum(CHECKS)}/{n}")
     if not all(CHECKS):
