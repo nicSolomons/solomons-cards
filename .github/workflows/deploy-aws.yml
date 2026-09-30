@@ -47,3 +47,19 @@ jobs:
       - name: Refresh the delivery network
         run: |
           aws cloudfront create-invalidation --distribution-id E173LHXLTF70J6 --paths "/*"
+
+      # Daniel's audit F16, Nicole's option A (2026-09-30): the edge answers every address that is not a published
+      # file with the card-not-found page and the full security headers. The list is rebuilt from THIS repo on every
+      # deploy (same files the sync just uploaded), so it cannot be forgotten: there is no other way to deploy.
+      - name: Refresh the edge list of published files
+        run: |
+          python3 .github/edge/build_edge.py --repo . --out "$RUNNER_TEMP/viewer-request.js"
+          FN=solomonsdigital-cards-viewer-request
+          ETAG=$(aws cloudfront describe-function --name "$FN" --stage DEVELOPMENT --query ETag --output text)
+          ETAG=$(aws cloudfront update-function --name "$FN" --if-match "$ETAG"             --function-config '{"Comment":"Goal 21 edge: forwards, clean URLs, published-files list (F16)","Runtime":"cloudfront-js-2.0"}'             --function-code "fileb://$RUNNER_TEMP/viewer-request.js" --query ETag --output text)
+          aws cloudfront publish-function --name "$FN" --if-match "$ETAG" > /dev/null
+
+      # the deploy checks its own result: every card loads, and a made-up address gets the not-found page with the
+      # full headers. If not, this run fails and GitHub emails the repo owner.
+      - name: Verify what visitors now get
+        run: python3 .github/edge/verify_edge.py --repo .

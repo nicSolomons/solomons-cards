@@ -70,6 +70,18 @@ def main():
         got = hashlib.sha256(body).hexdigest()
         check(f"/{rel} live matches the published copy", status == 200 and got == want,
               f"HTTP {status}, live {got[:12]} vs committed {want[:12]}")
+    # the edge list is current and in force (audit F16, option A): a made-up address is answered at the edge with the
+    # not-found page and the full headers. A skipped or failed list refresh, or a removed step, fails here next morning.
+    import uuid
+    c = http.client.HTTPSConnection(DOMAIN, timeout=20, context=ssl.create_default_context())
+    c.request("GET", f"/no-such-card-{uuid.uuid4().hex[:8]}/", headers={"User-Agent": "goal21-tamper-watch"})
+    r = c.getresponse()
+    body = r.read()
+    h = {k.lower(): v for k, v in r.getheaders()}
+    check("a made-up address gets the not-found page at the edge, with CSP and noindex, no S3 server name",
+          r.status == 404 and b"This card was not found" in body and "default-src 'none'" in h.get("content-security-policy", "")
+          and "noindex" in h.get("x-robots-tag", "") and h.get("server", "cloudfront").lower() == "cloudfront",
+          f"HTTP {r.status}, csp={h.get('content-security-policy')!r:.40}, server={h.get('server')}")
     if "--inventory" in sys.argv:
         import json
         import subprocess
