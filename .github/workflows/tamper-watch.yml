@@ -1,9 +1,10 @@
 # Goal 21 Phase 8 item 3: daily tamper watch for solomonsdigital.com.au.
 # Copy of the file that lives at .github/workflows/tamper-watch.yml in nicSolomons/solomons-cards,
 # with its script at .github/tamper_watch.py (the deploy sync excludes .github/*, so neither is published).
-# Every day it compares every live card file byte for byte with the committed copy. A difference fails
-# the run, and GitHub emails the repo owner about the failed run. No AWS access, read-only token.
-# Note: GitHub pauses scheduled workflows in a repo with no commits for 60 days; any publish resets that.
+# Every day: every live card file byte for byte against the committed copy, AND a listing of the bucket that
+# fails on any object the repo does not hold (Daniel's audit T10/F15). A failure publishes an alert to the
+# solomonsdigital-alerts topic (email to n.goh@). The role may only list the bucket and publish that one topic.
+# GitHub pauses scheduled workflows after 60 days without commits: watch_liveness.py (room doctor) catches that.
 name: tamper-watch
 
 on:
@@ -13,6 +14,7 @@ on:
 
 permissions:
   contents: read
+  id-token: write
 
 jobs:
   watch:
@@ -23,5 +25,17 @@ jobs:
         with:
           persist-credentials: false
 
-      - name: Compare every live card file with the published copy
-        run: python3 .github/tamper_watch.py --repo .
+      - uses: aws-actions/configure-aws-credentials@e1253824e5c10ff9df46874f81ed3ec929e19cfd # v6.3.0
+        with:
+          role-to-assume: arn:aws:iam::484474575484:role/solomons-cards-alert
+          aws-region: ap-southeast-2
+
+      - name: Compare every live file with the published copy, and list the bucket for extras
+        run: python3 .github/tamper_watch.py --repo . --inventory
+
+      - name: Alert a person
+        if: failure()
+        run: |
+          aws sns publish --topic-arn arn:aws:sns:ap-southeast-2:484474575484:solomonsdigital-alerts \
+            --subject "solomonsdigital.com.au tamper watch FAILED" \
+            --message "The daily tamper watch failed: https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}"
